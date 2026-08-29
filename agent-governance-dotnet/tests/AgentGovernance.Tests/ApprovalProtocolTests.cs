@@ -717,6 +717,8 @@ public sealed class WebhookApproverTests
             new Uri("http://[fd00:ec2::254]/latest/meta-data")));
         Assert.Throws<ArgumentException>(() => new WebhookApprover(
             new Uri("http://[::ffff:127.0.0.1]/approval")));
+        Assert.Throws<ArgumentException>(() => new WebhookApprover(
+            new Uri("http://[64:ff9b::a9fe:a9fe]/latest/meta-data")));
     }
 
     private static ApprovalRequest OpenRequest()

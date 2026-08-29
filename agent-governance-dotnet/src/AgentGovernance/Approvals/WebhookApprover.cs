@@ -321,6 +321,7 @@ public sealed class WebhookApprover : IApprovalTransport, IDisposable
             address.IsIPv6SiteLocal ||
             address.IsIPv6Multicast ||
             (ipv6[0] & 0xfe) == 0xfc ||
+            (ipv6[0] == 0x00 && ipv6[1] == 0x64 && ipv6[2] == 0xff && ipv6[3] == 0x9b) ||
             (ipv6[0] == 0x20 && ipv6[1] == 0x01 && ipv6[2] == 0x0d && ipv6[3] == 0xb8);
     }
 
