@@ -255,7 +255,7 @@ func TestApprovalCoordinatorRejectsInvalidActionBinding(t *testing.T) {
 		ChainID: "binding-validation",
 		Version: "1",
 		Stages: []ApprovalStage{
-			{StageIndex: 0, ApproverKind: ApproverHuman},
+			{StageIndex: 0, ApproverKind: ApproverHuman, AllowedIdentities: []string{"alice"}},
 		},
 	}
 	cases := []struct {

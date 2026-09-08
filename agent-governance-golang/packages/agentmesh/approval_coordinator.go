@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -521,8 +522,6 @@ func (c *ApprovalCoordinator) resolveRequestLocked(approvalRequestID string, out
 	}
 	result := c.resultFromStore(policy, request)
 	result.Resolution = resolution
-	result.Decision = resolution.PolicyDecision()
-	result.Allowed = result.Decision == Allow
 	c.log(request.AgentID, "approval_resolved:"+request.Operation, result.Decision)
 	return result, nil
 }
@@ -537,7 +536,10 @@ func (c *ApprovalCoordinator) resultFromStore(policy ApprovalPolicyDecisionRecor
 		Resolution:     resolution,
 		Decision:       RequiresApproval,
 	}
-	if resolution.ApprovalResolutionID != "" {
+	if request.Status != ApprovalPending || !c.clock().UTC().Before(request.ExpiresAt) {
+		result.Decision = Deny
+	}
+	if request.Status == ApprovalAllowed && c.clock().UTC().Before(request.ExpiresAt) && resolution.ApprovalResolutionID != "" {
 		result.Decision = resolution.PolicyDecision()
 		result.Allowed = result.Decision == Allow
 	}
@@ -647,6 +649,18 @@ func (c *ApprovalCoordinator) validateConfig() error {
 			return fmt.Errorf("approval stage index %d is duplicated", stage.StageIndex)
 		}
 		stageIndexes[stage.StageIndex] = struct{}{}
+		if !stage.Optional && !stage.isAdvisory() {
+			configured := false
+			for _, principal := range append(append([]string(nil), stage.AllowedIdentities...), stage.AllowedRoles...) {
+				if strings.TrimSpace(principal) != "" {
+					configured = true
+					break
+				}
+			}
+			if !configured {
+				return fmt.Errorf("required approval stage %d has no authorized identities or roles", stage.StageIndex)
+			}
+		}
 	}
 	return nil
 }

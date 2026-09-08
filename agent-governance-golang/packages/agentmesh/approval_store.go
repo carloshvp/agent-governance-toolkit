@@ -6,6 +6,7 @@ package agentmesh
 import (
 	"errors"
 	"sync"
+	"time"
 )
 
 var (
@@ -192,4 +193,35 @@ func cloneApprovalChainEntries(entries []ApprovalChainEntry) []ApprovalChainEntr
 func cloneApprovalChainEntry(entry ApprovalChainEntry) ApprovalChainEntry {
 	entry.Roles = cloneStrings(entry.Roles)
 	return entry
+}
+
+// PruneExpired removes complete records after their expiry and retention period.
+// Call periodically with a trusted clock; no background goroutine is started.
+// Retention starts at the later of request expiry and resolution, preserving
+// live approvals and their replay protection even when retention is zero.
+// Export records before pruning if a durable audit trail is required.
+func (s *InMemoryApprovalStore) PruneExpired(now time.Time, retention time.Duration) (int, error) {
+	if now.IsZero() || retention < 0 {
+		return 0, errors.New("nonzero cleanup time and nonnegative retention are required")
+	}
+	if s == nil {
+		return 0, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	for id, record := range s.records {
+		deadline := record.request.ExpiresAt
+		if deadline.IsZero() {
+			continue
+		}
+		if record.resolution != nil && record.resolution.ResolvedAt.After(deadline) {
+			deadline = record.resolution.ResolvedAt
+		}
+		if !now.Before(deadline.Add(retention)) {
+			delete(s.records, id)
+			removed++
+		}
+	}
+	return removed, nil
 }
